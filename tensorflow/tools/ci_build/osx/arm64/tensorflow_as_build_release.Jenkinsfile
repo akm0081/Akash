@@ -26,13 +26,34 @@ pipeline {
                     agent {
                         label "nightly-build-release"
                     }
+
+                    // LINUX FORMAT:
+
+                    // environment {
+                    //     PYENV_ROOT="$HOME/.pyenv"
+                    //     PATH="$PYENV_ROOT/shims:/opt/homebrew/bin/:$PATH"
+                    //     TF_PYTHON_VERSION=3.9
+                    // }
+
+                    // WINDOWS FORMAT:
+
                     environment {
-                        PYENV_ROOT="$HOME/.pyenv"
-                        PATH="$PYENV_ROOT/shims:/opt/homebrew/bin/:$PATH"
+                        PYENV_ROOT="$env:USERPROFILE/.pyenv"
+                        PATH="$PYENV_ROOT/shims;C:/opt/homebrew/bin;$env:PATH"
                         TF_PYTHON_VERSION=3.9
+                        PYTHONPATH="$WORKSPACE/tensorflow/tools/pip_package"  
                     }
                     steps {
                         dir('tensorflow') {
+
+                            // Diagnostic echo statements to check environment variables
+                            sh 'echo PYENV_ROOT: $PYENV_ROOT'
+                            sh 'echo PATH: $PATH'
+                            sh 'echo TF_PYTHON_VERSION: $TF_PYTHON_VERSION'
+                            sh 'echo PYTHONPATH: $PYTHONPATH'
+                            sh 'echo WORKSPACE: $WORKSPACE'
+                            sh 'echo USERPROFILE: $USERPROFILE'
+
 
                             sh '''
                                 pyenv init -
@@ -49,14 +70,27 @@ pipeline {
                                 pip install -r ./tensorflow/tools/ci_build/release/requirements_mac.txt
                             '''
 
+                            // Once the build is successful, the "target - (build_pip_package)" had set two mandatory
+                            // parameters to be passed. Which are - "--output-name" and "--project-name".
+                            // The project_name was not dealt with because it was given a default value here in the 
+                            // pipeline. Since the output_name was not mentioned, and since it is cannot be hardcoded
+                            // as it will be ".whl" file, we need to handle it dynamically to get the file name of the
+                            // ".whl" file, once created under the "dist" directory on the successful execution of 
+                            // "Binary Distribution" with helper "python setup.py bdist_wheel" command.
+
+                            // The same code is reproduced for all the following pyhton versions.
+
                             sh '''
                                 /opt/homebrew/bin/bazel --bazelrc="${WORKSPACE}/tensorflow/tensorflow/tools/ci_build/osx/arm64/.macos.bazelrc" build \
                                 //tensorflow/tools/pip_package:build_pip_package
-                                    
+                            '''
+
+                            sh '''
+                                # Use the dynamically set variables in the final packaging command
                                 ./bazel-bin/tensorflow/tools/pip_package/build_pip_package \
-                                --project_name tensorflow_macos \
-                                dist
-                                '''
+                                --output-name "${OUTPUT_NAME}" \
+                                --project-name "tensorflow_macos"
+                            '''
                         }
                             
                         archiveArtifacts artifacts: "tensorflow/dist/*.whl", followSymlinks: false, onlyIfSuccessful: true
@@ -66,13 +100,33 @@ pipeline {
                     agent {
                         label "nightly-build-release"
                     }
+
+                    // LINUX FORMAT:
+
+                    // environment {
+                    //     PYENV_ROOT="$HOME/.pyenv"
+                    //     PATH="$PYENV_ROOT/shims:/opt/homebrew/bin/:$PATH"
+                    //     TF_PYTHON_VERSION=3.10
+                    // }
+
+                    // WINDOWS FORMAT:
+
                     environment {
-                        PYENV_ROOT="$HOME/.pyenv"
-                        PATH="$PYENV_ROOT/shims:/opt/homebrew/bin/:$PATH"
+                        PYENV_ROOT="$env:USERPROFILE/.pyenv"
+                        PATH="$PYENV_ROOT/shims;C:/opt/homebrew/bin;$env:PATH"
                         TF_PYTHON_VERSION=3.10
+                        PYTHONPATH="$WORKSPACE/tensorflow/tools/pip_package"  
                     }
                     steps {
                         dir('tensorflow') {
+
+                            // Diagnostic echo statements to check environment variables
+                            sh 'echo PYENV_ROOT: $PYENV_ROOT'
+                            sh 'echo PATH: $PATH'
+                            sh 'echo TF_PYTHON_VERSION: $TF_PYTHON_VERSION'
+                            sh 'echo PYTHONPATH: $PYTHONPATH'
+                            sh 'echo WORKSPACE: $WORKSPACE'
+                            sh 'echo USERPROFILE: $USERPROFILE'
 
                             sh '''
                                 pyenv init -
@@ -92,10 +146,13 @@ pipeline {
                             sh '''
                                 /opt/homebrew/bin/bazel --bazelrc="${WORKSPACE}/tensorflow/tensorflow/tools/ci_build/osx/arm64/.macos.bazelrc" build \
                                 //tensorflow/tools/pip_package:build_pip_package
-                                
+                            '''
+
+                            sh '''
+                                # Use the dynamically set variables in the final packaging command
                                 ./bazel-bin/tensorflow/tools/pip_package/build_pip_package \
-                                --project_name tensorflow_macos \
-                                dist
+                                --output-name "${OUTPUT_NAME}" \
+                                --project-name "tensorflow_macos" 
                             '''
                         }
                             
@@ -106,13 +163,33 @@ pipeline {
                     agent {
                         label "nightly-build-release"
                     }
+
+                    // LINUX FORMAT:
+
+                    // environment {
+                    //     PYENV_ROOT="$HOME/.pyenv"
+                    //     PATH="$PYENV_ROOT/shims:/opt/homebrew/bin/:$PATH"
+                    //     TF_PYTHON_VERSION=3.11
+                    // }
+
+                    // WINDOWS FORMAT:
+
                     environment {
-                        PYENV_ROOT="$HOME/.pyenv"
-                        PATH="$PYENV_ROOT/shims:/opt/homebrew/bin/:$PATH"
+                        PYENV_ROOT="$env:USERPROFILE/.pyenv"
+                        PATH="$PYENV_ROOT/shims;C:/opt/homebrew/bin;$env:PATH"
                         TF_PYTHON_VERSION=3.11
+                        PYTHONPATH="$WORKSPACE/tensorflow/tools/pip_package"  
                     }
                     steps {
                         dir('tensorflow') {
+
+                            // Diagnostic echo statements to check environment variables
+                            sh 'echo PYENV_ROOT: $PYENV_ROOT'
+                            sh 'echo PATH: $PATH'
+                            sh 'echo TF_PYTHON_VERSION: $TF_PYTHON_VERSION'
+                            sh 'echo PYTHONPATH: $PYTHONPATH'
+                            sh 'echo WORKSPACE: $WORKSPACE'
+                            sh 'echo USERPROFILE: $USERPROFILE'
 
                             sh '''
                                 pyenv init -
@@ -132,10 +209,13 @@ pipeline {
                             sh '''
                                 /opt/homebrew/bin/bazel --bazelrc="${WORKSPACE}/tensorflow/tensorflow/tools/ci_build/osx/arm64/.macos.bazelrc" build \
                                 //tensorflow/tools/pip_package:build_pip_package
-                                
+                            '''
+
+                            sh '''
+                                # Use the dynamically set variables in the final packaging command
                                 ./bazel-bin/tensorflow/tools/pip_package/build_pip_package \
-                                --project_name tensorflow_macos \
-                                dist
+                                --output-name "${OUTPUT_NAME}" \
+                                --project-name "tensorflow_macos" 
                             '''
                         }
                             
