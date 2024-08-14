@@ -47,7 +47,7 @@ namespace {
 // including float16 and bfloat.
 //
 // Test parameter is a pair of (begin, end) for range under test.
-template <PrimitiveType T>
+template <PrimitiveType T, bool kLeftToRightPacking = false>
 class Exhaustive16BitBinaryTest
     : public ExhaustiveBinaryTest<T>,
       public ::testing::WithParamInterface<std::pair<int64_t, int64_t>> {
@@ -95,11 +95,21 @@ class Exhaustive16BitBinaryTest
     absl::Span<NativeT> input_arr_1 = (*input_literals)[1].data<NativeT>();
     for (int64_t i = 0; i < input_size; i++) {
       uint32_t input_val = i + begin;
-      // Convert the lower 16 bits to the NativeT and replaced known incorrect
-      // input values with 0.
-      input_arr_0[i] = ConvertAndReplaceKnownIncorrectValueWith(input_val, 0);
-      input_arr_1[i] =
-          ConvertAndReplaceKnownIncorrectValueWith(input_val >> 16, 0);
+      // Convert the packed bits to a pair of NativeT and replace known
+      // incorrect input values with 0.
+      //
+      // In either case, we only use 32 bits out of the 64 bits possible.
+      if constexpr (kLeftToRightPacking) {
+        // Left is stored at higher 16 bits.
+        input_arr_0[i] =
+            ConvertAndReplaceKnownIncorrectValueWith(input_val >> 16, 0);
+        input_arr_1[i] = ConvertAndReplaceKnownIncorrectValueWith(input_val, 0);
+      } else {
+        // Left is stored at lower 16 bits.
+        input_arr_0[i] = ConvertAndReplaceKnownIncorrectValueWith(input_val, 0);
+        input_arr_1[i] =
+            ConvertAndReplaceKnownIncorrectValueWith(input_val >> 16, 0);
+      }
     }
   }
 
