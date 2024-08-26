@@ -177,6 +177,11 @@ enum class ExecutionStage : uint8_t {
   kExecute = XLA_FFI_ExecutionStage_EXECUTE,
 };
 
+enum class Traits : uint32_t {
+  kNone = 0,
+  kCmdBuffer = XLA_FFI_HANDLER_TRAITS_COMMAND_BUFFER_COMPATIBLE,
+};
+
 // Forward declare template defined below.
 template <ExecutionStage stage, typename... Ts>
 class Binding;
@@ -206,7 +211,7 @@ class Ffi {
   // less readable error messages, template metaprogramming "magic" and a risk
   // to accidentally change handler type without noticing it.
   template <typename Fn, ExecutionStage stage = ExecutionStage::kExecute>
-  static auto BindTo(Fn fn);
+  static auto BindTo(Fn fn, Traits traits = Traits::kNone);
 
   virtual ~Ffi() = default;
   virtual XLA_FFI_Error* Call(const XLA_FFI_CallFrame* call_frame) const = 0;
@@ -242,6 +247,11 @@ class Ffi {
   static XLA_FFI_Error* CheckStructSize(const XLA_FFI_Api* api,
                                         std::string_view struct_name,
                                         size_t expected, size_t actual);
+
+  static XLA_FFI_Error* StructSizeIsGreaterOrEqual(const XLA_FFI_Api* api,
+                                                   std::string_view struct_name,
+                                                   size_t expected,
+                                                   size_t actual);
 };
 
 XLA_FFI_Error* Ffi::RegisterStaticHandler(const XLA_FFI_Api* api,
@@ -251,7 +261,7 @@ XLA_FFI_Error* Ffi::RegisterStaticHandler(const XLA_FFI_Api* api,
                                           XLA_FFI_Handler_Traits traits) {
   XLA_FFI_Handler_Register_Args args;
   args.struct_size = XLA_FFI_Handler_Register_Args_STRUCT_SIZE;
-  args.priv = nullptr;
+  args.extension_start = nullptr;
   args.name = XLA_FFI_ByteSpan{name.data(), name.size()};
   args.platform = XLA_FFI_ByteSpan{platform.data(), platform.size()};
   args.bundle = bundle;
@@ -273,7 +283,7 @@ inline XLA_FFI_Error* Ffi::MakeError(const XLA_FFI_Api* api,
                                      std::string message) {
   XLA_FFI_Error_Create_Args args;
   args.struct_size = XLA_FFI_Error_Create_Args_STRUCT_SIZE;
-  args.priv = nullptr;
+  args.extension_start = nullptr;
   args.errc = errc;
   args.message = message.c_str();
   return api->XLA_FFI_Error_Create(&args);
@@ -292,6 +302,18 @@ inline XLA_FFI_Error* Ffi::CheckStructSize(const XLA_FFI_Api* api,
     return InvalidArgument(
         api, StrCat("Unexpected ", struct_name, " size: expected ", expected,
                     " got ", actual, ". Check installed software versions."));
+  }
+  return nullptr;
+}
+
+inline XLA_FFI_Error* Ffi::StructSizeIsGreaterOrEqual(
+    const XLA_FFI_Api* api, std::string_view struct_name, size_t expected,
+    size_t actual) {
+  if (actual < expected) {
+    return InvalidArgument(
+        api, StrCat("Unexpected ", struct_name, " size: expected at least ",
+                    expected, " got ", actual,
+                    ". Check installed software versions."));
   }
   return nullptr;
 }
@@ -506,9 +528,10 @@ class Binding {
   }
 
   template <typename Fn>
-  std::unique_ptr<Handler<stage, Fn, Ts...>> To(Fn fn) {
+  std::unique_ptr<Handler<stage, Fn, Ts...>> To(Fn fn,
+                                                Traits traits = Traits::kNone) {
     return std::unique_ptr<Handler<stage, Fn, Ts...>>(
-        new Handler<stage, Fn, Ts...>(std::move(fn), attrs_));
+        new Handler<stage, Fn, Ts...>(std::move(fn), traits, attrs_));
   }
 
  private:
@@ -641,37 +664,43 @@ struct BindOne<Fn, Param, Params...> {
   // Binds single parameter and then continues with remaining parameters using
   // recursive template instantiation.
   template <typename InFlightBinding>
-  static auto To(Fn fn, InFlightBinding binding) {
+  static auto To(Fn fn, InFlightBinding binding, Traits traits) {
     if constexpr (is_arg_binding_v<Param>) {
       // Bind parameter as an FFI handler argument.
       return BindOne<Fn, Params...>::To(
           std::move(fn),
-          std::move(binding).template Arg<typename ArgBinding<Param>::Arg>());
+          std::move(binding).template Arg<typename ArgBinding<Param>::Arg>(),
+          traits);
+
     } else if constexpr (is_ret_binding_v<Param>) {
       // Bind parameter as an FFI handler result.
       return BindOne<Fn, Params...>::To(
           std::move(fn),
-          std::move(binding).template Ret<typename RetBinding<Param>::Ret>());
+          std::move(binding).template Ret<typename RetBinding<Param>::Ret>(),
+          traits);
 
     } else if constexpr (is_attr_binding_v<Param>) {
       // Bind parameter as a named FFI handler attribute.
       return BindOne<Fn, Params...>::To(
           std::move(fn),
           std::move(binding).template Attr<typename AttrBinding<Param>::Attr>(
-              std::string(AttrBinding<Param>::name())));
+              std::string(AttrBinding<Param>::name())),
+          traits);
 
     } else if constexpr (is_attrs_binding_v<Param>) {
       // Bind parameter as attributes dictionary.
       return BindOne<Fn, Params...>::To(
           std::move(fn),
           std::move(binding)
-              .template Attrs<typename AttrsBinding<Param>::Attrs>());
+              .template Attrs<typename AttrsBinding<Param>::Attrs>(),
+          traits);
 
     } else if constexpr (is_ctx_binding_v<Param>) {
       // Bind parameter as an FFI handler context.
       return BindOne<Fn, Params...>::To(
           std::move(fn),
-          std::move(binding).template Ctx<typename CtxBinding<Param>::Ctx>());
+          std::move(binding).template Ctx<typename CtxBinding<Param>::Ctx>(),
+          traits);
 
     } else {
       // Parameter is not recognized as one of the types that can be bound to
@@ -686,8 +715,8 @@ struct BindOne<Fn, Param, Params...> {
 template <typename Fn>
 struct BindOne<Fn> {
   template <typename InFlightBinding>
-  static auto To(Fn fn, InFlightBinding binding) {
-    return binding.To(std::move(fn));
+  static auto To(Fn fn, InFlightBinding binding, Traits traits) {
+    return binding.To(std::move(fn), traits);
   }
 };
 
@@ -700,8 +729,9 @@ template <ExecutionStage stage, typename ResultType, typename... Params>
 struct Bind<stage, ResultType (*)(Params...)> {
   using Fn = ResultType (*)(Params...);
 
-  static auto To(Fn fn) {
-    return BindOne<Fn, Params...>::To(std::move(fn), Ffi::Bind<stage>());
+  static auto To(Fn fn, Traits traits) {
+    return BindOne<Fn, Params...>::To(std::move(fn), Ffi::Bind<stage>(),
+                                      traits);
   }
 };
 
@@ -709,19 +739,21 @@ struct Bind<stage, ResultType (*)(Params...)> {
 template <ExecutionStage stage, typename ResultType, typename Fn,
           typename... Params>
 struct Bind<stage, ResultType (Fn::*)(Params...) const> {
-  static auto To(Fn fn) {
-    return BindOne<Fn, Params...>::To(std::move(fn), Ffi::Bind<stage>());
+  static auto To(Fn fn, Traits traits) {
+    return BindOne<Fn, Params...>::To(std::move(fn), Ffi::Bind<stage>(),
+                                      traits);
   }
 };
 
 }  // namespace internal
 
 template <typename Fn, ExecutionStage stage>
-auto Ffi::BindTo(Fn fn) {
+auto Ffi::BindTo(Fn fn, Traits traits) {
   if constexpr (std::is_pointer_v<Fn>) {
-    return internal::Bind<stage, Fn>::To(fn);
+    return internal::Bind<stage, Fn>::To(fn, traits);
   } else {
-    return internal::Bind<stage, decltype(&Fn::operator())>::To(std::move(fn));
+    return internal::Bind<stage, decltype(&Fn::operator())>::To(std::move(fn),
+                                                                traits);
   }
 }
 
@@ -1301,16 +1333,13 @@ class Handler : public Ffi {
       return err;
     }
 
-    // Check the API versions.
-    const XLA_FFI_Api_Version& api_version = call_frame->api->api_version;
-    if (api_version.major_version != XLA_FFI_API_MAJOR ||
-        api_version.minor_version != XLA_FFI_API_MINOR) {
-      return InvalidArgument(
-          call_frame->api,
-          StrCat("FFI handler's API version (", XLA_FFI_API_MAJOR, ".",
-                 XLA_FFI_API_MINOR, ") does not match the framework's API ",
-                 "version (", api_version.major_version, ".",
-                 api_version.minor_version, ")"));
+    // If passed a call frame with the metadata extension, just return the
+    // metadata.
+    if (call_frame->extension_start != nullptr &&
+        call_frame->extension_start->type == XLA_FFI_Extension_Metadata) {
+      return PopulateMetadata(call_frame->api,
+                              reinterpret_cast<XLA_FFI_Metadata_Extension*>(
+                                  call_frame->extension_start));
     }
 
     // Check that handler is called during correct execution stage.
@@ -1396,6 +1425,28 @@ class Handler : public Ffi {
   }
 
  private:
+  XLA_FFI_Error* PopulateMetadata(const XLA_FFI_Api* api,
+                                  XLA_FFI_Metadata_Extension* extension) const {
+    if (XLA_FFI_Error* err = StructSizeIsGreaterOrEqual(
+            api, "XLA_FFI_Metadata_Extension",
+            XLA_FFI_Metadata_Extension_STRUCT_SIZE, extension->struct_size)) {
+      return err;
+    }
+    if (XLA_FFI_Error* err = StructSizeIsGreaterOrEqual(
+            api, "XLA_FFI_Metadata", XLA_FFI_Metadata_STRUCT_SIZE,
+            extension->metadata->struct_size)) {
+      return err;
+    }
+    extension->metadata->api_version = XLA_FFI_Api_Version{
+        XLA_FFI_Api_Version_STRUCT_SIZE,
+        /*extension_start=*/nullptr,
+        XLA_FFI_API_MAJOR,
+        XLA_FFI_API_MINOR,
+    };
+    extension->metadata->traits = static_cast<XLA_FFI_Handler_Traits>(traits_);
+    return Sucess();
+  }
+
   template <size_t... Is>
   XLA_FFI_ATTRIBUTE_ALWAYS_INLINE XLA_FFI_Error* Call(
       const XLA_FFI_CallFrame* call_frame, std::index_sequence<Is...>) const {
@@ -1447,8 +1498,8 @@ class Handler : public Ffi {
   template <ExecutionStage, typename...>
   friend class Binding;
 
-  Handler(Fn fn, std::vector<std::string> attrs)
-      : fn_(std::move(fn)), attrs_(std::move(attrs)) {
+  Handler(Fn fn, Traits traits, std::vector<std::string> attrs)
+      : fn_(std::move(fn)), traits_(traits), attrs_(std::move(attrs)) {
     // Sort attributes' names and remove duplicates. These unique attributes are
     // what we'll be looking for in the call frame attributes.
     std::vector<std::string> sorted = attrs_;
@@ -1465,6 +1516,7 @@ class Handler : public Ffi {
   }
 
   Fn fn_;
+  Traits traits_;
 
   std::vector<std::string> attrs_;  // names of bound attributes
 
@@ -1687,6 +1739,12 @@ auto DictionaryDecoder(Members... m) {
     return handler->Call(call_frame);                                         \
   }
 
+#define XLA_FFI_DEFINE_HANDLER_TRAITS(fn, impl, binding, traits)              \
+  static constexpr XLA_FFI_Handler* fn = +[](XLA_FFI_CallFrame* call_frame) { \
+    static auto* handler = binding.To(impl, traits).release();                \
+    return handler->Call(call_frame);                                         \
+  }
+
 // Automatically infer binding specification from the implementation.
 #define XLA_FFI_DEFINE_HANDLER_AUTO(fn, impl)                                 \
   static constexpr XLA_FFI_Handler* fn = +[](XLA_FFI_CallFrame* call_frame) { \
@@ -1694,7 +1752,7 @@ auto DictionaryDecoder(Members... m) {
     return handler->Call(call_frame);                                         \
   }
 
-#define XLA_FFI_DEFINE_HANDLER_X(x, fn, impl, binding, FUNC, ...) FUNC
+#define XLA_FFI_DEFINE_HANDLER_X(x, fn, impl, binding, traits, FUNC, ...) FUNC
 
 // Define XLA FFI handler as a static function pointer variable, which allows
 // to define handlers in nested scopes without polluting the global namespace.
@@ -1704,6 +1762,7 @@ auto DictionaryDecoder(Members... m) {
 #define XLA_FFI_DEFINE_HANDLER(fn, impl, ...)                 \
   XLA_FFI_DEFINE_HANDLER_X(                                   \
       , fn, impl, ##__VA_ARGS__,                              \
+      XLA_FFI_DEFINE_HANDLER_TRAITS(fn, impl, __VA_ARGS__),   \
       XLA_FFI_DEFINE_HANDLER_EXPLICIT(fn, impl, __VA_ARGS__), \
       XLA_FFI_DEFINE_HANDLER_AUTO(fn, impl))
 
