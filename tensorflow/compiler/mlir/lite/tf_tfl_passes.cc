@@ -283,9 +283,10 @@ void AddPostQuantizationStableHloToTfPasses(
     pass_manager.addPass(mlir::odml::CreateUnfoldSplatConstantPass());
     pass_manager.addPass(mlir::odml::CreateLegalizeHloToTfLitePass());
   }
-  // TF dialect passes
-  pass_manager.addPass(mlir::odml::CreateLegalizeHloToTfPass());
-
+  if (!pass_config.disable_hlo_to_tf_legalization) {
+    // TF dialect passes
+    pass_manager.addPass(mlir::odml::CreateLegalizeHloToTfPass());
+  }
   // folds tf.BroadcastTo ops with subsequent ops if they have built in
   // broadcasting support. This needs to be run immediately after HLO->TF
   // legalization; otherwise other passes like `ConvertTFBroadcastTo` will

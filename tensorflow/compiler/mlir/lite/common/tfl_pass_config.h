@@ -64,16 +64,22 @@ struct PassConfig {
   // Whether to run the `GuaranteeAllFuncsOneUsePass` to ensure each function
   // has a single use.
   bool guarantee_all_funcs_one_use = false;
-  // Whether to enable the hlo/stablehlo to tf conversion. This also supports
+  // Whether to enable the hlo/stablehlo lowering. This also supports
   // the case where a saved model contains both TF module and serialized
-  // StableHLO module.
+  // StableHLO module. This is an umbrella flag that gates both
+  // hlo->tf and hlo->tflite lowerings. TODO: b/351437662 - Clean this up
+  // with the other two flags below when better support for pipelines is added.
   bool enable_hlo_to_tf_conversion = false;
   // Whether to disable the direct hlo/stablehlo to Tensorflow Lite conversion.
   //
   // This prevents from directly converting from HLO to TFLite without going
-  // through TF for some of the ops. Some conversions are only supported through
+  // through TF. Some conversions are only supported through
   // this path.
   bool disable_hlo_to_tfl_conversion = false;
+  // Whether to skip hlo->tf legalizations that occur after hlo->tflite.
+  // This path is deprcecated as the equivalent functionality is now
+  // present in hlo->tflite.
+  bool disable_hlo_to_tf_legalization = true;
   // Whether to enable to use DynamicUpdateSlice op.
   bool enable_dynamic_update_slice = false;
   // Whether to preserve AssertOp during legalization.
