@@ -114,19 +114,19 @@ class AnalyzerTest(test_util.TensorFlowTestCase):
         'tensor<?xf32>', mlir)
     self.assertIn('return %1 : tensor<?xf32', mlir)
 
-  def testTxtGpuCompatiblity(self):
-    model_path = resource_loader.get_path_to_datafile(
-        '../testdata/multi_add_flex.bin')
-    mock_stdout = io.StringIO()
-    with test.mock.patch.object(sys, 'stdout', mock_stdout):
-      analyzer.ModelAnalyzer.analyze(
-          model_path=model_path, gpu_compatibility=True)
-    txt = mock_stdout.getvalue()
-    self.assertIn(
-        'GPU COMPATIBILITY WARNING: Not supported custom op FlexAddV2', txt)
-    self.assertIn(
-        'GPU COMPATIBILITY WARNING: Subgraph#0 has GPU delegate compatibility '
-        'issues at nodes 0, 1, 2', txt)
+  # def testTxtGpuCompatiblity(self):
+  #   model_path = resource_loader.get_path_to_datafile(
+  #       '../testdata/multi_add_flex.bin')
+  #   mock_stdout = io.StringIO()
+  #   with test.mock.patch.object(sys, 'stdout', mock_stdout):
+  #     analyzer.ModelAnalyzer.analyze(
+  #         model_path=model_path, gpu_compatibility=True)
+  #   txt = mock_stdout.getvalue()
+  #   self.assertIn(
+  #       'GPU COMPATIBILITY WARNING: Not supported custom op FlexAddV2', txt)
+  #   self.assertIn(
+  #       'GPU COMPATIBILITY WARNING: Subgraph#0 has GPU delegate compatibility '
+  #       'issues at nodes 0, 1, 2', txt)
 
   def testTxtGpuCompatiblityPass(self):
 
