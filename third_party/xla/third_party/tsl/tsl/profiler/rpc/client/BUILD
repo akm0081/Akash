@@ -64,8 +64,6 @@ cc_library(
         "//learning/pathways/data_parallel:__pkg__",
     ]),
     deps = [
-        "//tsl/lib/io:zlib_compression_options",
-        "//tsl/lib/io:zlib_outputbuffer",
         "//tsl/platform:env",
         "//tsl/platform:errors",
         "//tsl/platform:logging",
@@ -76,6 +74,8 @@ cc_library(
         "//tsl/profiler/utils:file_system_utils",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
+        "@local_xla//xla/tsl/lib/io:zlib_compression_options",
+        "@local_xla//xla/tsl/lib/io:zlib_outputbuffer",
     ],
 )
 
