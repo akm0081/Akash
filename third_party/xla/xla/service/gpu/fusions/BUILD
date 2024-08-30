@@ -12,6 +12,7 @@ cc_library(
     name = "in_place_dynamic_update_slice_mlir",
     srcs = ["in_place_dynamic_update_slice_mlir.cc"],
     hdrs = ["in_place_dynamic_update_slice_mlir.h"],
+    tags = ["gpu"],
     deps = [
         "//xla:shape_util",
         "//xla:xla_data_proto_cc",
@@ -37,6 +38,7 @@ cc_library(
     name = "copy",
     srcs = ["copy.cc"],
     hdrs = ["copy.h"],
+    tags = ["gpu"],
     deps = [
         ":fusion_emitter",
         "//xla:shape_util",
@@ -59,6 +61,7 @@ cc_library(
     srcs = ["custom.cc"],
     hdrs = ["custom.h"],
     local_defines = if_cuda_is_configured(["GOOGLE_CUDA=1"]),
+    tags = ["gpu"],
     deps = [
         ":fusion_emitter",
         "//xla:shape_util",
@@ -160,6 +163,7 @@ cc_library(
     name = "fusion_emitter",
     srcs = ["fusion_emitter.cc"],
     hdrs = ["fusion_emitter.h"],
+    tags = ["gpu"],
     visibility = ["//xla/service/gpu:__subpackages__"],
     deps = [
         "//xla:shape_util",
@@ -196,6 +200,7 @@ cc_library(
     name = "fusions",
     srcs = ["fusions.cc"],
     hdrs = ["fusions.h"],
+    tags = ["gpu"],
     visibility = ["//xla/service/gpu:__subpackages__"],
     deps = [
         ":concatenate_mlir",
@@ -238,6 +243,7 @@ cc_library(
     testonly = True,
     srcs = ["mlir_emitter_test_base.cc"],
     hdrs = ["mlir_emitter_test_base.h"],
+    tags = ["gpu"],
     deps = [
         "//xla:xla_proto_cc",
         "//xla/hlo/ir:hlo",
@@ -277,6 +283,7 @@ cc_library(
     name = "loop_mlir",
     srcs = ["loop_mlir.cc"],
     hdrs = ["loop_mlir.h"],
+    tags = ["gpu"],
     deps = [
         "//xla:shape_util",
         "//xla:status_macros",
@@ -323,6 +330,7 @@ cc_library(
     name = "scatter_mlir",
     srcs = ["scatter_mlir.cc"],
     hdrs = ["scatter_mlir.h"],
+    tags = ["gpu"],
     deps = [
         "//xla:shape_util",
         "//xla:xla_data_proto_cc",
@@ -355,6 +363,7 @@ cc_library(
     name = "transpose_mlir",
     srcs = ["transpose_mlir.cc"],
     hdrs = ["transpose_mlir.h"],
+    tags = ["gpu"],
     deps = [
         ":fusion_emitter",
         "//xla:permutation_util",
@@ -389,6 +398,7 @@ cc_library(
     name = "triton",
     srcs = ["triton.cc"],
     hdrs = ["triton.h"],
+    tags = ["gpu"],
     visibility = ["//xla/service/gpu:__subpackages__"],
     deps = [
         ":fusion_emitter",
@@ -428,7 +438,7 @@ cc_library(
 xla_cc_test(
     name = "triton_test",
     srcs = ["triton_test.cc"],
-    local_defines = if_cuda_is_configured(["GOOGLE_CUDA=1"]),
+    tags = ["gpu"],
     deps = [
         ":fusion_emitter",
         ":fusions",
@@ -452,6 +462,7 @@ cc_library(
     srcs = ["cudnn.cc"],
     hdrs = ["cudnn.h"],
     local_defines = if_cuda_is_configured(["GOOGLE_CUDA=1"]),
+    tags = ["gpu"],
     deps = [
         ":fusion_emitter",
         "//xla/hlo/ir:hlo",
@@ -511,6 +522,7 @@ cc_library(
     name = "thunk_util",
     srcs = ["thunk_util.cc"],
     hdrs = ["thunk_util.h"],
+    tags = ["gpu"],
     visibility = ["//xla/service/gpu:__subpackages__"],
     deps = [
         "//xla:literal",
@@ -530,6 +542,7 @@ cc_library(
     name = "reduction_base",
     srcs = ["reduction_base.cc"],
     hdrs = ["reduction_base.h"],
+    tags = ["gpu"],
     visibility = ["//xla/service/gpu/fusions:__subpackages__"],
     deps = [
         ":fusion_emitter",
@@ -565,6 +578,7 @@ cc_library(
     name = "reduction_mlir",
     srcs = ["reduction_mlir.cc"],
     hdrs = ["reduction_mlir.h"],
+    tags = ["gpu"],
     deps = [
         ":fusion_emitter",
         ":reduction_base",
@@ -624,6 +638,7 @@ cc_library(
     name = "concatenate_mlir",
     srcs = ["concatenate_mlir.cc"],
     hdrs = ["concatenate_mlir.h"],
+    tags = ["gpu"],
     deps = [
         "//xla/hlo/ir:hlo",
         "//xla/service/gpu:gpu_fusible",
@@ -648,6 +663,7 @@ cc_library(
     name = "input_slices_mlir",
     srcs = ["input_slices_mlir.cc"],
     hdrs = ["input_slices_mlir.h"],
+    tags = ["gpu"],
     deps = [
         "//xla:util",
         "//xla:xla_data_proto_cc",
