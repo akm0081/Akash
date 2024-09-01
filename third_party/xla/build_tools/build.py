@@ -195,7 +195,9 @@ def nvidia_gpu_build_with_compute_capability(
       + extra_gpu_tags,
       build_tag_filters=("-no_oss", "requires-gpu-nvidia", "gpu"),
       options=dict(
-          run_under="//tools/ci_build/gpu_build:parallel_gpu_execute",
+          run_under=(
+              "//tools/ci_build/gpu_build:cuda_compat_and_parallel_gpu_execute"
+          ),
           repo_env=f"TF_CUDA_COMPUTE_CAPABILITIES={compute_capability/10}",
           **_DEFAULT_BAZEL_OPTIONS,
       ),
@@ -285,7 +287,9 @@ _JAX_GPU_BUILD = Build(
         JAX_EXCLUDE_TEST_TARGETS="PmapTest.testSizeOverflow",
     ),
     options=dict(
-        **_DEFAULT_BAZEL_OPTIONS, override_repository="xla=/github/xla"
+        **_DEFAULT_BAZEL_OPTIONS,
+        override_repository="xla=/github/xla",
+        run_under="@local_xla//tools/ci_build/gpu_build:cuda_compat",
     ),
 )
 
