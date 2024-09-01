@@ -665,7 +665,7 @@ std::optional<int64_t> MatchShapeCoveringDynamicIndexInstruction(
 WhileLoopUnroller::GetUnrollableLoops(
     HloModule* module,
     const absl::flat_hash_set<absl::string_view>& execution_threads,
-    const UnrollConfig& unroll_config) {
+    std::optional<UnrollConfig> unroll_config) {
   // Processing the while loops in the reverse topological order. If the body
   // of while loop A calls while loop B, B comes before A.
   std::vector<HloInstruction*> all_while_ops;
@@ -676,13 +676,16 @@ WhileLoopUnroller::GetUnrollableLoops(
   std::vector<std::pair<HloInstruction*, WhileLoopConfig>> while_loop_configs;
   for (HloInstruction* instr : all_while_ops) {
     std::optional<WhileLoopConfig> config = IsLoopUnrollable(instr);
-    if (config.has_value()) {
-      if (!InitialFeasibilityCheck(instr, config.value(), unroll_config)) {
-        VLOG(3) << "Initial feasibility check failed for " << instr->name();
-        continue;
-      }
-      while_loop_configs.emplace_back(instr, config.value());
+    if (!config.has_value()) {
+      continue;
     }
+    if (unroll_config.has_value() &&
+        !InitialFeasibilityCheck(instr, config.value(),
+                                 unroll_config.value())) {
+      VLOG(3) << "Initial feasibility check failed for " << instr->name();
+      continue;
+    }
+    while_loop_configs.emplace_back(instr, config.value());
   }
   return while_loop_configs;
 }

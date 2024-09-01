@@ -496,7 +496,7 @@ TEST_F(WhileLoopUnrollerTest, GetUnrollableLoops) {
                           ParseAndReturnVerifiedModule(hlo_string));
 
   auto unrollable_loops =
-      WhileLoopUnroller::GetUnrollableLoops(module.get(), {});
+      WhileLoopUnroller::GetUnrollableLoops(module.get(), {}, std::nullopt);
   // Only while1 and while2 are unrollable
   EXPECT_EQ(unrollable_loops.size(), 2);
 }
